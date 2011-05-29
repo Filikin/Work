@@ -1,0 +1,52 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>Fundraising Ireland Membership</title>
+<script src="js/jquery-1.5.2.min.js"></script>
+<script src="js/runonload.js"></script>
+<script src="js/membership.js"></script>
+<link href="css/membership.css" media="all" type="text/css" rel="stylesheet">
+</head>
+<body>
+<div id="contact_form">
+  <form name="contact" method="post" action="">
+    <fieldset>
+      <label for="name" id="name_label">Full name* </label>
+      <input type="text" name="name" id="name" size="25" value="" class="text-input" />
+      <label class="error" for="name" id="name_error">This field is required.</label>
+      
+      <label for="email" id="email_label">Work Email Address*</label>
+      <input type="text" name="email" id="email" size="25" value="" class="text-input" />
+      <label class="error" for="email" id="email_error">This field is required.</label>
+      
+      <label for="phone" id="phone_label">Work Telephone*</label>
+      <input type="text" name="phone" id="phone" size="25" value="" class="text-input" />
+      <label class="error" for="phone" id="phone_error">This field is required.</label>
+      
+      <label for="organisation" id="organisation_label">Organisation Name*</label>
+      <input type="text" name="organisation" id="organisation" size="25" value="" class="text-input" />
+      <label class="error" for="organisation" id="organisation_error">This field is required.</label>
+      
+      <label for="address1" id="address1_label">First part of address</label>
+      <input type="text" name="address1" id="address1" size="25" value="" class="text-input" />
+
+      <label for="address2" id="address2_label">Second part of address</label>
+      <input type="text" name="address2" id="address2" size="25" value="" class="text-input" />
+
+      <div align="center" id="membershipselection">
+        Membership Type: 
+		<input type="radio" name="membershiptype" value="individual" checked>Individual
+		<input type="radio" name="membershiptype" value="corporate">Corporate
+		<input type="radio" name="membershiptype" value="corporateplusdirectory">Corporate Membership & Directory Listing
+		<input type="radio" name="membershiptype" value="conference">Conference Attendance
+		<input type="radio" name="membershiptype" value="training">Training Events
+		<input type="radio" name="membershiptype" value="jobs">Job Advert
+	  </div>
+	  <br />
+      <input type="submit" id="create" class="button" id="submit_btn" value="Create member and process order" />
+     </fieldset>
+  </form>
+</div>
+</body>
+</html>
