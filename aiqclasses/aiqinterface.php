@@ -28,7 +28,7 @@ class AIQInterface
 		global $partnerKey;
 		global $userKey;
 			
-		GetKeys (0);
+		GetKeys (1);
 			
 		$myLogin = new Login ($entityID, $partnerKey, $userKey);
     	$myLoginResponse = $this->ws->Login($myLogin);
@@ -120,6 +120,30 @@ class AIQInterface
         $this->lastOpError = false;
         $invoiceCode = "";
         $this->errorString = 'Starting to create a sales invoice';
+
+        $newbatchsalesinvoiceline = new BatchSalesInvoiceLine ();
+        $newbatchsalesinvoiceline->NetAmount = $amount;
+        $newbatchsalesinvoiceline->TaxRate = $vatrate;
+        $newbatchsalesinvoiceline->GLAccountCode = $glcode;
+ 	    $newbatchsalesinvoiceline->TaxCode = $vatcode;
+    	$newbatchsalesinvoiceline->Description = $description;
+    	$newbatchsalesinvoiceline->DepartmentID = $deptcode;
+        $newbatchsalesinvoicelines[] = $newbatchsalesinvoiceline;
+        $newbatchsalesinvoice = new BatchSalesInvoice ($organisationcode, time(), "Web site", $description, $newbatchsalesinvoicelines, 1);
+
+        $createbatchsalesinvoiceparams = new CreateBatchSalesInvoice ($this->auth, $newbatchsalesinvoice);
+        $result = $this->ws->CreateBatchSalesInvoice($createbatchsalesinvoiceparams)->CreateBatchSalesInvoiceResult;
+        if (!empty($result->Result))
+        {
+	        return $result->Result;
+        }
+        else
+        {
+	        $this->lastOpError = true;
+    	    $this->errorString = $result->Status . " Error Creating Batch Sales Invoice " . $result->ErrorMessage;
+    	    return null;
+        }
+        
         
         $getnewsalesinvoiceparams = new GetNewSalesInvoice ($this->auth, $organisationcode);
         $result = $this->ws->GetNewSalesInvoice($getnewsalesinvoiceparams)->GetNewSalesInvoiceResult;
@@ -176,17 +200,26 @@ class AIQInterface
  
 	public function MarkInvoiceAsPaid ($invoiceID, $reference, $amountpaid, $bankaccountcode)
 	{
-		$this->lastTransactionID = 0;
+		//$this->lastTransactionID = 0;
+		$this->errorString = "Start GetOrgCodeandTransactionIDFromInvoice";
 		$orgcode = $this->GetOrgCodeandTransactionIDFromInvoice ($invoiceID);
-		$invoiceTransactionID = $this->lastTransactionID;
+		//$invoiceTransactionID = $this->lastTransactionID;
+		//$orgcode = "TES03";
 		if ($this->lastOpError == false)
 		{
+		$this->errorString = "Start CreateNewSalesReceipt";
 			$receiptTransactionID = $this->CreateNewSalesReceipt ($orgcode, $reference, $amountpaid, $bankaccountcode, "GEN", $invoiceID);
 			if ($this->lastOpError == false)
 			{
+		$this->errorString = "Start AllocateTransactions";
 				// allocate the amount from the receipt to the invoice
-				$allocatetransactionsparams = new AllocateTransactions ($this->auth, $invoiceTransactionID, $receiptTransactionID, $reference, $amountpaid, time());
+				$allocatetransactionsparams = new AllocateTransactions ($this->auth, $invoiceID, $receiptTransactionID, $reference, $amountpaid, time());
  				$allocatetransactionresult = $this->ws->AllocateTransactions ($allocatetransactionsparams)->AllocateTransactionsResult;
+ 				if ($allocatetransactionresult->Status != OperationStatus::Success)
+ 				{
+ 					$this->errorString = $allocatetransactionresult->Status . " " . $allocatetransactionresult->ErrorMessage;
+ 					$this->lastOpError = true;
+ 				}
 			}
 		}
 		return true;
@@ -317,6 +350,10 @@ class AIQInterface
     			$customercode = $this->FindCustomerByName ($getinvoiceresult->Result->AccountName);
     			$this->lastTransactionID = $getinvoiceresult->Result->Notes;
     			return $customercode;
+    		}
+    		else
+    		{
+    			$this->errorString = $getinvoiceresult->Status;
     		}
         }
         return "";
