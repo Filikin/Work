@@ -63,8 +63,8 @@
 	$aiqif = new AIQInterface();
 	if ($aiqif->Login())
 	{
-		$result = $aiqif->CreateOrFetchCustomer($organisation, $address1, $address2, $email, $phone);
-		if ($aiqif->lastOpError || empty($result))
+		$orgcode = $aiqif->CreateOrFetchCustomer($organisation, $address1, $address2, $email, $phone);
+		if ($aiqif->lastOpError || empty($orgcode))
 		{
 			echo "<h2>Error: Cannot find customer</h2><p>" . $aiqif->errorString . "</p><img id='checkmark' src='images/cancelmark.png' />";
 		}
@@ -130,13 +130,13 @@
 				$bankaccountcode = 6010; // pretend paid by cheque
 				$description = "Job Advert " . $organisation;
 			}
-			$invoiceid = $aiqif->CreateNewSalesInvoice ($result, $amount, $vatcode, $vatrate, $glcode, $deptcode, $description);
+			$transactionID = $aiqif->CreateNewSalesInvoice ($orgcode, $amount, $vatcode, $vatrate, $glcode, $deptcode, $description);
 			if (!$aiqif->lastOpError)
 			{
-				echo "<h2>Membership invoice created</h2><p>Invoice number: " . $invoiceid . "</p><img id='checkmark' src='images/check.png' />" .
-				"<input type='submit' id='pay' class='button' id='submit_btn' value='Pay now' />";
+				echo "<h2>Membership invoice created and paid</h2><p>Transaction ID: " . $transactionID . "</p><img id='checkmark' src='images/check.png' />"; 
+				// ."<input type='submit' id='pay' class='button' id='submit_btn' value='Pay now' />";
 				
-				$aiqif->MarkInvoiceAsPaid ($invoiceid, "test payment", $amount * ($vatrate+1), $bankaccountcode); // quick test just to see the invoice marked as paid
+				$aiqif->MarkInvoiceAsPaid ($transactionID, $orgcode, "test payment", $amount * ($vatrate+1), $bankaccountcode); // quick test just to see the invoice marked as paid
 				if ($aiqif->lastOpError)
 				{
 					echo "<h2>Error marking invoice as paid " . $aiqif->errorString . "</h2>"; 

@@ -4,6 +4,7 @@ $partnerKey = "";
 $userKey = "";
 
 include_once('keys.inc');
+include_once ('dump.class.php');
 
 class AIQInterface
 {
@@ -28,7 +29,7 @@ class AIQInterface
 		global $partnerKey;
 		global $userKey;
 			
-		GetKeys (1);
+		GetKeys (0);
 			
 		$myLogin = new Login ($entityID, $partnerKey, $userKey);
     	$myLoginResponse = $this->ws->Login($myLogin);
@@ -135,7 +136,7 @@ class AIQInterface
         $result = $this->ws->CreateBatchSalesInvoice($createbatchsalesinvoiceparams)->CreateBatchSalesInvoiceResult;
         if (!empty($result->Result))
         {
-	        return $result->Result;
+	        $internalInvoiceReference = $result->Result;
         }
         else
         {
@@ -144,83 +145,65 @@ class AIQInterface
     	    return null;
         }
         
-        
-        $getnewsalesinvoiceparams = new GetNewSalesInvoice ($this->auth, $organisationcode);
-        $result = $this->ws->GetNewSalesInvoice($getnewsalesinvoiceparams)->GetNewSalesInvoiceResult;
-        if (!empty($result->Result))
+        $customerCodes[] = $organisationcode;
+        $getcustomersstatementparams = new GetCustomersStatement ($this->auth, time(), $customerCodes, true);
+        $result = $this->ws->GetCustomersStatement($getcustomersstatementparams)->GetCustomersStatementResult;
+   		if (!empty($result->Result))
         {
-        	$invoice = $result->Result;
-            $line = new InvoiceLine(0, 0, null, '101', 'From default', 1, 0, $amount, $amount, 0, 
-            $amount, $vatcode, $vatrate, 0, 0,
-            0, '1', 'BIN1', time(), null, null,
-            	false, $glcode, $glcode, null, $deptcode, null);
-            $invoice->Lines->InvoiceLine[] = $line;
-            $invoice->ExchangeRate = 1;
-            $invoice->ExternalReference = $description;
-                        
-            $saveinvoicegetbackinvoiceidparams = new SaveInvoiceGetBackInvoiceID ($this->auth, $invoice, true);
-            $response = $this->ws->SaveInvoiceGetBackInvoiceID($saveinvoicegetbackinvoiceidparams);
-             
-            if ($response->SaveInvoiceGetBackInvoiceIDResult->Status == OperationStatus::Created)
+	        $customerStatements = $result->Result;
+	        foreach ($customerStatements as $c) 
             {
-                $this->errorString = 'Status is Invoice Created';
-                $invoiceID = $response->invoiceID;
-                $postinvoicegetbacktransactionidparams = new PostInvoiceGetBackTransactionID($this->auth, $invoiceID);
-                $postresponse = $this->ws->PostInvoiceGetBackTransactionID($postinvoicegetbacktransactionidparams);
-                $postedResult = $postresponse->PostInvoiceGetBackTransactionIDResult;
-                if ($postedResult->Status == OperationStatus::Created)
-                {
-                	$this->lastTransactionID = $postresponse->transactionID;
-                	
-                	// need to store the transaction ID somewhere, so store it in the Invoice Notes field
-                	$this->SaveTransactionIDWithInvoice ($invoiceID, $postresponse->transactionID);
-                    return $invoiceID;
-                }
-                else
-                {
-                    $this->lastOpError = true;
-                    $this->errorString = $postedResult->Status . ' Failed to post invoice ' . $postedResult->ErrorCode;
-                    return null;
-                }
-            }
-            else
-            {
-                $this->lastOpError = true;
-                $this->errorString = $response->SaveInvoiceGetBackInvoiceIDResult->Status . ' Failed to save invoice ' . $response->SaveInvoiceGetBackInvoiceIDResult->ErrorCode;
-                return null;
+              foreach ($c->TransactionList as $trans)
+              {
+              	//$d = new dump ($trans);
+              	//$this->errorString = $d->get_html();
+              	$this->lastTransactionID = "";
+              	if (count ($trans) == 1)
+              	{
+              		$this->lastTransactionID = $trans->TransactionReference;
+              		return $this->lastTransactionID;
+              	}
+              	else
+              	{
+	              	foreach ($trans as $transState)
+	              	{
+	              		if ($transState->Type == "SI" && $transState->InternalNumber == $internalInvoiceReference)
+	              		{
+	              			$this->lastTransactionID = $transState->TransactionReference;
+	              			return $this->lastTransactionID;
+	              		}
+	              	}
+              	}
+              	if (empty($this->lastTransactionID))
+              	{
+              		$this->lastOpError = true;
+              		$this->errorString = "Cannot find transaction ID";
+              		return null;
+              	}
+              }
             }
         }
         else
         {
-            $this->errorString = 'Failed to create new sales invoice ' . $result->ErrorMessage;
-            $this->lastOpError = true;
-            return null;
+	        $this->lastOpError = true;
+    	    $this->errorString = $result->Status . " Error Getting Customers Statement " . $result->ErrorMessage;
+    	    return null;
         }
     }
  
-	public function MarkInvoiceAsPaid ($invoiceID, $reference, $amountpaid, $bankaccountcode)
+	public function MarkInvoiceAsPaid ($invoiceTransactionID, $orgcode, $reference, $amountpaid, $bankaccountcode)
 	{
-		//$this->lastTransactionID = 0;
-		$this->errorString = "Start GetOrgCodeandTransactionIDFromInvoice";
-		$orgcode = $this->GetOrgCodeandTransactionIDFromInvoice ($invoiceID);
-		//$invoiceTransactionID = $this->lastTransactionID;
-		//$orgcode = "TES03";
+		$receiptTransactionID = $this->CreateNewSalesReceipt ($orgcode, $reference, $amountpaid, $bankaccountcode, "GEN", $invoiceTransactionID);
 		if ($this->lastOpError == false)
 		{
-		$this->errorString = "Start CreateNewSalesReceipt";
-			$receiptTransactionID = $this->CreateNewSalesReceipt ($orgcode, $reference, $amountpaid, $bankaccountcode, "GEN", $invoiceID);
-			if ($this->lastOpError == false)
-			{
-		$this->errorString = "Start AllocateTransactions";
-				// allocate the amount from the receipt to the invoice
-				$allocatetransactionsparams = new AllocateTransactions ($this->auth, $invoiceID, $receiptTransactionID, $reference, $amountpaid, time());
- 				$allocatetransactionresult = $this->ws->AllocateTransactions ($allocatetransactionsparams)->AllocateTransactionsResult;
- 				if ($allocatetransactionresult->Status != OperationStatus::Success)
- 				{
- 					$this->errorString = $allocatetransactionresult->Status . " " . $allocatetransactionresult->ErrorMessage;
- 					$this->lastOpError = true;
- 				}
-			}
+			// allocate the amount from the receipt to the invoice
+			$allocatetransactionsparams = new AllocateTransactions ($this->auth, $invoiceTransactionID, $receiptTransactionID, $reference, $amountpaid, time());
+ 			$allocatetransactionresult = $this->ws->AllocateTransactions ($allocatetransactionsparams)->AllocateTransactionsResult;
+ 			if ($allocatetransactionresult->Status != OperationStatus::Success)
+ 			{
+ 				$this->errorString = $allocatetransactionresult->Status . " " . $allocatetransactionresult->ErrorMessage;
+ 				$this->lastOpError = true;
+ 			}
 		}
 		return true;
 	}
@@ -282,7 +265,7 @@ class AIQInterface
         return "";
     }
     
-    private function CreateNewSalesReceipt ($orgcode, $lodgementID, $amount, $BankAccountCode, $deptcode, $invoiceID)
+    private function CreateNewSalesReceipt ($orgcode, $lodgementID, $amount, $BankAccountCode, $deptcode, $invoiceTransactionID)
     {
         $this->lastOpError = false;
         try
@@ -300,7 +283,7 @@ class AIQInterface
         if (!empty ($this->auth))
         {
 	        $this->errorString = 'Starting to create a purchase payment';
-        	$description = "Invoice number " . $invoiceID;
+        	$description = "Invoice transaction ID " . $invoiceTransactionID;
     	    $salesreceipt = new SalesReceipt ($orgcode, $lodgementID, $amount, $BankAccountCode, $lodgementID, time(), 1, 1, $description, $deptcode);
             $savesalesreceiptegetbacktransactionidparams = new SaveSalesReceiptGetBackTransactionID ($this->auth, $salesreceipt);
             $response = $this->ws->SaveSalesReceiptGetBackTransactionID($savesalesreceiptegetbacktransactionidparams);
@@ -325,54 +308,5 @@ class AIQInterface
             return null;
         }
     }
-    
-    private function GetOrgCodeandTransactionIDFromInvoice ($invoiceID)
-    {
- 		$this->lastOpError = true;
-    	try
-        {
-            if (empty($this->auth))
-            {
-                $this->auth = $this->Login();
-            }
-        }
-        catch (exception $e)
-        {
-            return 'Failed to login' + e;
-        }
-        if (!empty ($this->auth))
-        {
-        	$getinvoiceparams = new GetInvoice ($this->auth, $invoiceID);
-    		$getinvoiceresult = $this->ws->GetInvoice ($getinvoiceparams)->GetInvoiceResult;
-    		if ($getinvoiceresult->Result && $getinvoiceresult->Status == OperationStatus::Success)
-    		{
- 				$this->lastOpError = false;
-    			$customercode = $this->FindCustomerByName ($getinvoiceresult->Result->AccountName);
-    			$this->lastTransactionID = $getinvoiceresult->Result->Notes;
-    			return $customercode;
-    		}
-    		else
-    		{
-    			$this->errorString = $getinvoiceresult->Status;
-    		}
-        }
-        return "";
-    }
-    private function  SaveTransactionIDWithInvoice ($invoiceID, $transactionID)
-    {
-       if (!empty ($this->auth))
-        {
-        	$getinvoiceparams = new GetInvoice ($this->auth, $invoiceID);
-    		$getinvoiceresult = $this->ws->GetInvoice ($getinvoiceparams)->GetInvoiceResult;
-    		if ($getinvoiceresult->Result && $getinvoiceresult->Status == OperationStatus::Success)
-    		{
-    			$invoice = $getinvoiceresult->Result;
-    			$invoice->Notes = $transactionID;
-           		$saveinvoiceparams = new SaveInvoice ($this->auth, $invoice, false);
-            	$response = $this->ws->SaveInvoice($saveinvoiceparams);
-    		}
-        }    	
-    }
-    
  }
 ?>
