@@ -64,6 +64,7 @@
 	if ($aiqif->Login())
 	{
 		$orgcode = $aiqif->CreateOrFetchCustomer($organisation, $address1, $address2, $email, $phone);
+		
 		if ($aiqif->lastOpError || empty($orgcode))
 		{
 			echo "<h2>Error: Cannot find customer</h2><p>" . $aiqif->errorString . "</p><img id='checkmark' src='images/cancelmark.png' />";

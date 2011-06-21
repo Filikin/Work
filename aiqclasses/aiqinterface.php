@@ -64,11 +64,17 @@ class AIQInterface
         catch (exception $e)
         {
             $this->lastOpError = true;
-            return 'Failed to login' + e;
+            $this->errorString = 'Failed to login ' + $e;
+            return 'Failed to login ' + $e;
         }
         if (!empty ($this->auth))
         {
             $orgcode = $this->FindCustomerByName ($organisation);
+            if ($this->lastOpError)
+            {
+            	return $this->errorString;
+            }
+            
             if (!empty($orgcode))
             {
                 $result = $orgcode;
@@ -233,6 +239,7 @@ class AIQInterface
     	}
     	return $uniquecode;
     }
+    
     private function FindCustomerByName ($customername)
     {
     	$activecustomerlistparams = new GetActiveCustomerList($this->auth);
@@ -254,12 +261,22 @@ class AIQInterface
         if (!empty($cuslist))
         {
             $custarray = $cuslist->Result;
-            foreach ($custarray->Customer as $c) 
+            try
             {
-                if (strcasecmp ($c->Name,$customername) == 0)
-                {
-                    return $c->Code;
-                }
+            	if (!empty($custarray))
+            	{
+		            foreach ($custarray->Customer as $c) 
+		            {
+		                if (strcasecmp ($c->Name,$customername) == 0)
+		                {
+		                    return $c->Code;
+		                }
+		            }
+            	}
+            }
+            catch (exception $e)
+            {
+            	return ""; // no customers
             }
         }
         return "";
