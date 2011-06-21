@@ -1,4 +1,6 @@
 <?php
+$AIQServer = 'https://appdb.visor.ie/visor/production/dashboard/Integration/Integration_1_1.asmx?WSDL';
+//$AIQServer = 'https://www.visorsoftware.com/visor/accountsiq/dashboard/Integration/Integration_1_1.asmx?WSDL';
 
 include_once('Login.php');
 include_once('LoginResponse.php');
@@ -619,7 +621,7 @@ class Integration_1_1 extends SoapClient
    * @param string $wsdl The wsdl file to use
    * @access public
    */
-  public function __construct(array $options = array(), $wsdl = 'https://appdb.visor.ie/visor/production/dashboard/Integration/Integration_1_1.asmx?WSDL')
+  public function __construct(array $options = array(), $wsdl = $AIQServer)
   {
     foreach(self::$classmap as $key => $value)
     {
