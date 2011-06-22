@@ -1,4 +1,9 @@
 <?php
+// test server
+$AIQServer = 'https://appdb.visor.ie/visor/production/dashboard/Integration/Integration_1_1.asmx?WSDL';
+//production server
+//$AIQServer = 'https://www.visorsoftware.com/visor/accountsiq/dashboard/Integration/Integration_1_1.asmx?WSDL';
+
 $entityID = ""; 
 $partnerKey = "";
 $userKey = "";
@@ -16,8 +21,9 @@ class AIQInterface
 	
 	public function __construct ()
 	{
+		global $AIQServer;
 		$this->auth = "";
-		$this->ws = new Integration_1_1();
+		$this->ws = new Integration_1_1($AIQServer);
 		$this->lastOpError = false;
 		$this->errorString = "";
 		$this->lastTransactionID = 0;
@@ -209,9 +215,14 @@ class AIQInterface
  			{
  				$this->errorString = $allocatetransactionresult->Status . " " . $allocatetransactionresult->ErrorMessage;
  				$this->lastOpError = true;
+ 				return false;
+ 			}
+ 			else
+ 			{
+ 				return true;
  			}
 		}
-		return true;
+		return false;
 	}
 
 	
